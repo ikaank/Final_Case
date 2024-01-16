@@ -1,0 +1,69 @@
+*&---------------------------------------------------------------------*
+*& Include          zikk_finalcase_top
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&  Table definition for ALV report
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_data,
+         employee_id      TYPE zikk_employee-employee_id,
+         full_name        TYPE zikk_employee-full_name,
+         department       TYPE zikk_employee-department,
+         emp_position     TYPE zikk_employee-emp_position,
+         phone_number     TYPE zikk_employee-phone_number,
+         email            TYPE zikk_employee-email,
+         project_id       TYPE zikk_project-project_id,
+         project_name     TYPE zikk_project-project_name,
+         project_type     TYPE zikk_project-project_type,
+         start_date       TYPE zikk_project-start_date,
+         end_date         TYPE zikk_project-end_date,
+         project_status   TYPE zikk_project-project_status,
+         client_name      TYPE zikk_project-client_name,
+         project_priority TYPE zikk_project-project_priority,
+         project_manager  TYPE zikk_project-project_manager,
+         team_size        TYPE zikk_project-team_size,
+         cell_color       TYPE slis_t_specialcol_alv,  "This field defined for color settings in ALV
+       END OF ty_data.
+DATA: gt_data TYPE STANDARD TABLE OF ty_data WITH HEADER LINE,
+      gs_data TYPE ty_data.
+
+
+*&---------------------------------------------------------------------*
+*&  For view details of the ALV report
+*&
+*&  fieldcatalog and layout definition
+*&---------------------------------------------------------------------*
+DATA: gt_fcat   TYPE lvc_t_fcat, "slis_t_fieldcat_alv,
+      gs_fcat   TYPE lvc_s_fcat,
+      gs_layout TYPE lvc_s_layo,
+      gs_cell_color TYPE slis_specialcol_alv.
+
+
+DATA: gt_employee_db TYPE STANDARD TABLE OF zikk_employee,
+      gs_employee_db TYPE zikk_employee,
+      gt_employee_xl TYPE STANDARD TABLE OF zikk_employee,
+      gs_employee_xl TYPE zikk_employee,
+      gt_project_db  TYPE STANDARD TABLE OF zikk_project,
+      gs_project_db  TYPE zikk_project,
+      gt_project_xl  TYPE STANDARD TABLE OF zikk_project,
+      gs_project_xl  TYPE zikk_project.
+
+
+DATA: gv_control TYPE i. "If the excel file could not be read, the variable carries this information (is changed in the form upload_data)
+
+
+*&---------------------------------------------------------------------*
+*&  Definitions for excel template download
+*&
+*&
+*&---------------------------------------------------------------------*
+DATA: application TYPE ole2_object,
+      workbook    TYPE ole2_object,
+      sheet       TYPE ole2_object,
+      cells       TYPE ole2_object.
+
+
+DATA: gt_events TYPE slis_t_event,    "To set the information to show in end_of_list
+      gs_events TYPE slis_alv_event.
