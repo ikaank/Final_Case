@@ -6,8 +6,7 @@ Proje kapsamında bir işyerinde çalışan bilgilerinin tutulduğu bir header v
 <br/>
 <div>
   
-![1 2](https://github.com/ikaank/Final_Case/assets/112203026/62b22f3f-6b09-4b8a-86a3-b48425c30fe0)<br/> 
-
+![y1 2](https://github.com/ikaank/Final_Case/assets/112203026/3ac36743-f889-4232-97ba-1ad45fb5928a) <br/> 
 <div align="center"><p><strong>View Recorded Data</strong></p> </div>
 Yukarıda program çalıştırıldıktan sonra bizi ilk karşılayan ekranı görüyoruz. 
 </div>
@@ -23,7 +22,7 @@ Yukarıda program çalıştırıldıktan sonra bizi ilk karşılayan ekranı gö
 <br/>
 <div>
   
-![3](https://github.com/ikaank/Final_Case/assets/112203026/633cfd36-9218-4dc5-8112-816fb37973c6)<br/>
+![y2](https://github.com/ikaank/Final_Case/assets/112203026/aff1c318-2bc8-415e-8a8e-bad550a17928)<br/>
 <div><p>Eğer iki alanda doğru bilgilerle doldurulur ise girilen değerlere göre ilgili tablolardan ilgili veriyi getirecektir. Bu veriler bir ALV raporunda gösterilecektir. Birbiriyle eşleşmeyen değerler
 veya eksik değer girildiğinde ise aşağıdaki mesajlar gösterilecektir.</p> </div>
 
@@ -42,7 +41,7 @@ veya eksik değer girildiğinde ise aşağıdaki mesajlar gösterilecektir.</p> 
 
 <div align="center"><p>Program yukarıdaki mesajlardan hiç birini almamışsa aşağıdaki gibi ilgili veriyi ALV reporunda göstecektir.</p> </div>
 
-![12](https://github.com/ikaank/Final_Case/assets/112203026/5f154564-db22-4c9e-96c9-68c5e6eaf66d) <br/>
+![y3](https://github.com/ikaank/Final_Case/assets/112203026/b7231f3d-8067-45d6-a38b-cc543e559711)<br/>
 <div><p><strong>-------------------------------------------------------------------------------------------------------------------------------------------------------------</strong></p> </div>
 <div><p><strong>-------------------------------------------------------------------------------------------------------------------------------------------------------------</strong></p> </div>
 
