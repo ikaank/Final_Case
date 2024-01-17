@@ -1,0 +1,491 @@
+*&---------------------------------------------------------------------*
+*& Include          zikk_finalcase_frm
+*&---------------------------------------------------------------------*
+
+
+*&---------------------------------------------------------------------*
+*&      Form  f4_fname
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM f4_fname .
+  DATA: file_table TYPE filetable,
+        file_line  TYPE file_table,
+        rc         TYPE i.
+
+  CALL METHOD cl_gui_frontend_services=>file_open_dialog
+    EXPORTING
+      default_extension       = ''
+    CHANGING
+      file_table              = file_table
+      rc                      = rc
+    EXCEPTIONS
+      file_open_dialog_failed = 1
+      cntl_error              = 2
+      error_no_gui            = 3
+      not_supported_by_gui    = 4
+      OTHERS                  = 5.
+
+  READ TABLE file_table INTO file_line INDEX 1.
+  IF sy-subrc = 0.
+    p_fname = file_line-filename.
+  ENDIF.                               "f4_fname
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  upload_excel_file
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM upload_excel_file CHANGING gv_control.
+
+  DATA: lv_date_import TYPE char10. "used to convert date information to SAP date format.
+
+  DATA: lt_file LIKE alsmex_tabline OCCURS 0 WITH HEADER LINE.
+  CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
+    EXPORTING
+      filename                = p_fname
+      i_begin_col             = 1
+      i_begin_row             = 2
+      i_end_col               = 15
+      i_end_row               = 1000
+    TABLES
+      intern                  = lt_file
+    EXCEPTIONS
+      inconsistent_parameters = 1
+      upload_ole              = 2
+      OTHERS                  = 3.
+
+  IF sy-subrc NE 0.
+    MESSAGE 'Dosya Okunamad# !' TYPE 'I'.
+    gv_control = 1.
+  ELSE.
+    REFRESH gt_data.
+    LOOP AT lt_file.
+      CLEAR: lv_date_import.
+      CASE lt_file-col.
+        WHEN '0001'.
+          MOVE lt_file-value TO gt_data-employee_id.
+        WHEN '0002'.
+          MOVE lt_file-value TO gt_data-full_name.
+        WHEN '0003'.
+          MOVE lt_file-value TO gt_data-department.
+        WHEN '0004'.
+          MOVE lt_file-value TO gt_data-emp_position.
+        WHEN '0005'.
+          MOVE lt_file-value TO gt_data-phone_number.
+        WHEN '0006'.
+          MOVE lt_file-value TO gt_data-email.
+        WHEN '0007'.
+          MOVE lt_file-value TO gt_data-project_id.
+        WHEN '0008'.
+          MOVE lt_file-value TO gt_data-project_name.
+        WHEN '0009'.
+          MOVE lt_file-value TO gt_data-project_type.
+        WHEN '0010'.
+          MOVE lt_file-value TO lv_date_import.
+          IF strlen( lv_date_import ) EQ 10.
+            gt_data-start_date = lv_date_import+6(4) && lv_date_import+3(2) && lv_date_import+0(2).    "date info is converted to sap date format
+          ELSEIF strlen( lv_date_import ) EQ 9.                                                      "tarih bilgisi sap format#na uygun hale getiriliyor
+            gt_data-start_date = lv_date_import+5(4) && lv_date_import+2(2) && 0 && lv_date_import+0(1).
+          ENDIF.
+        WHEN '0011'.
+          MOVE lt_file-value TO lv_date_import.
+          IF strlen( lv_date_import ) EQ 10.
+            gt_data-end_date = lv_date_import+6(4) && lv_date_import+3(2) && lv_date_import+0(2).    "date info is converted to sap date format
+          ELSEIF strlen( lv_date_import ) EQ 9.                                                      "tarih bilgisi sap format#na uygun hale getiriliyor
+            gt_data-end_date = lv_date_import+5(4) && lv_date_import+2(2) && 0 && lv_date_import+0(1).
+          ENDIF.
+        WHEN '0012'.
+          MOVE lt_file-value TO gt_data-client_name.
+        WHEN '0013'.
+          MOVE lt_file-value TO gt_data-project_priority.
+        WHEN '0014'.
+          MOVE lt_file-value TO gt_data-project_manager.
+        WHEN '0015'.
+          MOVE lt_file-value TO gt_data-team_size.
+      ENDCASE.
+      AT END OF row.
+        APPEND gt_data.
+        CLEAR gt_data.
+      ENDAT.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form ALV  display_alv
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+FORM display_alv.
+
+  gs_layout-cwidth_opt = abap_true.
+  gs_layout-ctab_fname = 'CELL_COLOR'.
+
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+      i_structure_name       = 'ZIKK_ST_EMPLOYEE'
+    CHANGING
+      ct_fieldcat            = gt_fcat
+    EXCEPTIONS
+      inconsistent_interface = 1
+      program_error          = 2
+      OTHERS                 = 3.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+  PERFORM alv_colors.
+  gs_events-name = slis_ev_end_of_list.
+  gs_events-form = 'END_OF_LIST'.
+  APPEND gs_events TO gt_events.
+
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      i_callback_program       = sy-repid
+      i_callback_pf_status_set = 'PF_STATUS_SET'
+      i_callback_user_command  = 'USER_COMMAND'
+      is_layout_lvc            = gs_layout
+      it_fieldcat_lvc          = gt_fcat
+      i_default                = 'X'
+      i_save                   = ' '
+      it_events                = gt_events
+    TABLES
+      t_outtab                 = gt_data
+    EXCEPTIONS
+      program_error            = 1
+      OTHERS                   = 2.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form END_OF_LIST
+*&---------------------------------------------------------------------*
+*&      text
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+FORM end_of_list .
+  DATA: lt_header TYPE slis_t_listheader,
+        ls_header TYPE slis_listheader.
+  DATA: lv_rows   TYPE char4.
+  DATA: lt_data TYPE STANDARD TABLE OF ty_data.
+
+  CLEAR ls_header.
+  ls_header-typ = 'S'.
+  ls_header-key = 'Report Date: '.
+  ls_header-info = sy-datum+6(2) && '.' && sy-datum+4(2) && '.' && sy-datum+0(4).
+  APPEND ls_header TO lt_header.
+  CLEAR ls_header.
+  ls_header-key = 'Report Time:'.
+  ls_header-info = sy-uzeit+0(2) && ':' && sy-uzeit+2(2) && ':' && sy-uzeit+4(2).
+  APPEND ls_header TO lt_header.
+
+  MOVE-CORRESPONDING gt_data[] TO lt_data.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = lt_header
+*     I_LOGO             =
+*     I_END_OF_LIST_GRID =
+*     I_ALV_FORM         =
+    .
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form PF_STATUS_SET
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM pf_status_set USING p_extab TYPE slis_t_extab.
+  SET PF-STATUS 'ZSTATUS'.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form user_command
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM user_command USING r_ucomm     LIKE sy-ucomm
+                        rs_selfield TYPE slis_selfield.
+
+  CASE r_ucomm.
+    WHEN '&UPLOAD'.
+      IF tab-dynnr EQ 1002 AND p_fname IS NOT INITIAL AND gt_data[] IS NOT INITIAL.
+        PERFORM upload_data.
+        MESSAGE: 'Database tables updated.' TYPE 'S'.
+      ELSEIF tab-dynnr EQ 1002 AND p_fname IS NOT INITIAL AND gt_data[] IS INITIAL.
+        MESSAGE 'No data to save was found in the file!' TYPE 'E'.
+      ENDIF.
+    WHEN '&EMPLOYEE'.
+      CALL TRANSACTION 'ZIKK003'.
+    WHEN '&PROJECT'.
+      CALL TRANSACTION 'ZIKK004'.
+  ENDCASE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form upload_data
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM upload_data .
+
+  DATA: lv_index   TYPE sy-tabix,
+        lv_counter TYPE i.
+
+  SELECT * FROM zikk_employee INTO TABLE gt_employee_db. "veritaban#ndaki veriler aktar#ld#
+  SELECT * FROM zikk_project INTO TABLE gt_project_db.   "data in the database was transferred
+
+  LOOP AT gt_data[] INTO gs_data.
+
+    MOVE-CORRESPONDING gs_data TO gs_employee_xl.  "exceldeki veriler aktar#l#yor
+    MOVE-CORRESPONDING gs_data TO gs_project_xl.   "data in the excel file was transferred
+
+    READ TABLE gt_employee_db WITH KEY employee_id = gs_employee_xl-employee_id TRANSPORTING NO FIELDS.
+
+    lv_index = sy-tabix.
+
+    IF lv_index EQ 0.
+      APPEND gs_employee_xl TO gt_employee_db.  "ayn# id'de çal##an yok, veriyi ekle
+      APPEND gs_project_xl TO gt_project_db.    "There is no employee with the same id, add data
+
+    ELSE.
+      gs_employee_xl-mandt = sy-mandt. " gt_employee[ lv_index ]'de mandt de#eri görünüyor fakat gs_employee'de görünmüyor.
+      " The mandt value appears in gt_employee[ lv_index ] but does not appear in gs_employee.
+      IF gt_employee_db[ lv_index ] EQ gs_employee_xl.
+        READ TABLE gt_project_db WITH KEY gs_project_xl TRANSPORTING NO FIELDS.
+        IF sy-tabix = 0.
+          APPEND gs_project_xl TO gt_project_db.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+  MOVE-CORRESPONDING gt_data[] TO gt_project_xl.
+
+  CLEAR: gs_project_xl.
+  LOOP AT gt_project_xl INTO gs_project_xl.
+    lv_counter = 0.
+
+    LOOP AT gt_project_xl INTO gs_project_xl WHERE project_id EQ gs_project_xl-project_id.
+      lv_counter = lv_counter + 1.
+    ENDLOOP.
+
+    IF lv_counter NE gs_project_xl-team_size.                               "e#er teamsize de#eri kadar veri girilmemi#se tabloya eklemeyecek.
+      DELETE gt_project_xl WHERE project_id EQ gs_project_xl-project_id.    "ayr#ca, bunu yaparak bütün alanlar do#ru girilmi#
+    ENDIF.                                                                  "fakat id yanl## girilmi#se veri kaydetmesini önlemi# oluyoruz.
+  ENDLOOP.
+  "If no data is entered equal to the teamssize value, it will not be added to the table.
+  "also, by doing this all fields are entered correctly
+  "However, if the id is entered incorrectly, we prevent it from saving data.
+
+  MOVE-CORRESPONDING gt_project_xl TO gt_project_db.
+
+  SORT gt_employee_db BY employee_id.
+  SORT gt_project_db BY project_id.
+
+  MODIFY zikk_employee FROM TABLE gt_employee_db.
+  MODIFY zikk_Project FROM TABLE gt_project_db.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&    Form update_project_status
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+FORM update_project_status.
+
+  CLEAR: gt_project_db,
+         gs_project_db.
+
+  SELECT * FROM zikk_project INTO TABLE gt_project_db WHERE project_status NE 'Completed'.
+
+  LOOP AT gt_project_db INTO gs_project_db.
+    IF gs_project_db-start_date EQ '00000000' AND gs_project_db-end_date EQ '00000000'.
+      gs_project_db-project_status = 'Date not specified'.
+    ELSEIF gs_project_db-start_date EQ '00000000' AND gs_project_db-end_date NE '00000000'.
+      gs_project_db-project_status = 'Start date not specified'.
+    ELSEIF gs_project_db-start_date NE '00000000' AND gs_project_db-end_date EQ '00000000'.
+      gs_project_db-project_status = 'End date not specified'.
+    ELSEIF gs_project_db-start_date LT sy-datum AND gs_project_db-end_date LT sy-datum.
+      gs_project_db-project_status = 'Completed'.
+    ELSEIF gs_project_db-start_date LT sy-datum AND gs_project_db-end_date GT sy-datum.
+      gs_project_db-project_status = 'In Progress'.
+    ELSEIF gs_project_db-start_date GT sy-datum AND gs_project_db-end_date GT sy-datum.
+      gs_project_db-project_status = 'Planned'.
+    ENDIF.
+
+    MODIFY gt_project_db FROM gs_project_db TRANSPORTING project_status.
+  ENDLOOP.
+
+  SORT gt_project_db BY project_id.
+  MODIFY zikk_project FROM TABLE gt_project_db.
+
+  SELECT * FROM zikk_employee LEFT OUTER JOIN zikk_project ON zikk_employee~employee_id EQ zikk_project~employee_id
+          INTO CORRESPONDING FIELDS OF TABLE @gt_data[] WHERE zikk_employee~employee_id EQ zikk_project~employee_id.
+
+  PERFORM display_alv.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&   FORM alv_colors
+*&---------------------------------------------------------------------*
+*&  ALV report color settings
+*&---------------------------------------------------------------------*
+FORM alv_colors.
+  LOOP AT gt_data INTO gs_data.
+    IF gs_data-project_status EQ 'Completed'.
+      gs_cell_color-color-col = 1.
+      gs_cell_color-color-int = 0.
+      gs_cell_color-color-inv = 0.
+      APPEND gs_cell_color TO gs_data-cell_color.
+    ELSEIF gs_data-project_status EQ 'In Progress'.
+      gs_cell_color-color-col = 5.
+      gs_cell_color-color-int = 0.
+      gs_cell_color-color-inv = 0.
+      APPEND gs_cell_color TO gs_data-cell_color.
+    ELSEIF gs_data-project_status EQ 'Planned'.
+      gs_cell_color-color-col = 3.
+      gs_cell_color-color-int = 0.
+      gs_cell_color-color-inv = 0.
+      APPEND gs_cell_color TO gs_data-cell_color.
+    ELSEIF gs_data-project_status IS INITIAL.
+      gs_layout-zebra = abap_true.
+    ELSE.
+      gs_cell_color-color-col = 4.
+      gs_cell_color-color-int = 0.
+      gs_cell_color-color-inv = 0.
+      APPEND gs_cell_color TO gs_data-cell_color.
+    ENDIF.
+    MODIFY gt_data FROM gs_data.
+  ENDLOOP.
+
+  LOOP AT gt_fcat INTO gs_fcat WHERE fieldname EQ 'EMPLOYEE_ID'.
+    gs_fcat-key = abap_true.
+    MODIFY gt_fcat FROM gs_fcat TRANSPORTING key.
+  ENDLOOP.
+  LOOP AT gt_fcat INTO gs_fcat WHERE fieldname EQ 'PROJECT_ID'.
+    gs_fcat-key = abap_true.
+    MODIFY gt_fcat FROM gs_fcat TRANSPORTING key.
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&   FORM button_settings
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+FORM button_settings.
+  CALL FUNCTION 'ICON_CREATE'
+    EXPORTING
+      name   = icon_execute_object
+      text   = ''
+      info   = 'Execute (F8)'
+*     ADD_STDINF = 'X'
+    IMPORTING
+      result = button1
+    EXCEPTIONS
+      OTHERS = 1.
+
+  IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+* WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+  CALL FUNCTION 'ICON_CREATE'
+    EXPORTING
+      name   = icon_bw_rules_sap
+      text   = ''
+      info   = 'Update Project Status'
+*     ADD_STDINF = 'X'
+    IMPORTING
+      result = button2
+    EXCEPTIONS
+      OTHERS = 1.
+
+  IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+* WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+  CALL FUNCTION 'ICON_CREATE'
+    EXPORTING
+      name   = icon_export
+      text   = ''
+      info   = 'Download Excel Template'
+*     ADD_STDINF = 'X'
+    IMPORTING
+      result = button3
+    EXCEPTIONS
+      OTHERS = 1.
+
+  IF sy-subrc <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+* WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&   Form create_template
+*&---------------------------------------------------------------------*
+*&  creating excel template for user
+*&---------------------------------------------------------------------*
+FORM create_template.
+  SELECT * FROM zikk_employee LEFT OUTER JOIN zikk_project ON zikk_employee~employee_id EQ zikk_project~employee_id
+           INTO CORRESPONDING FIELDS OF TABLE @gt_data
+           WHERE zikk_employee~employee_id EQ zikk_project~employee_id.
+
+  CREATE OBJECT application 'excel.application'.
+  SET PROPERTY OF application 'visible' = 1.
+  CALL METHOD OF application 'Workbooks' = workbook.
+  CALL METHOD OF workbook 'Add'.
+
+  CALL METHOD OF application 'Worksheets' = sheet
+  EXPORTING #1 = 1.
+  CALL METHOD OF sheet 'Activate'.
+  SET PROPERTY OF sheet 'Name' = 'Sheet1'.
+
+  PERFORM fill_cell USING 1 1 'Employee ID'.
+  PERFORM fill_cell USING 1 2 'Full Name'.
+  PERFORM fill_cell USING 1 3 'Department'.
+  PERFORM fill_cell USING 1 4 'Position'.
+  PERFORM fill_cell USING 1 5 'Phone Number'.
+  PERFORM fill_cell USING 1 6 'Email'.
+  PERFORM fill_cell USING 1 7 'Project ID'.
+  PERFORM fill_cell USING 1 8 'Project Name'.
+  PERFORM fill_cell USING 1 9 'Project Type'.
+  PERFORM fill_cell USING 1 10 'Start Date'.
+  PERFORM fill_cell USING 1 11 'End Date'.
+  PERFORM fill_cell USING 1 12 'Client Name'.
+  PERFORM fill_cell USING 1 13 'Priority'.
+  PERFORM fill_cell USING 1 14 'Project Manager'.
+  PERFORM fill_cell USING 1 15 'Team Size'.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& fill_cell
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+FORM fill_cell USING row col val.
+  CALL METHOD OF sheet 'Cells' = cells EXPORTING #1 = row #2 = col.
+  SET PROPERTY OF cells 'Value' = val.
+ENDFORM.
